@@ -1,0 +1,5 @@
+flask_script
+nose
+mock
+coverage
+tox

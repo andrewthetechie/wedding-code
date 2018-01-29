@@ -1,0 +1,9 @@
+Flask
+python-decouple
+flask-sqlalchemy
+psycopg2
+flask-migrate
+flask-restful
+simplejson
+twilio>=6.5.0
+cerberus
