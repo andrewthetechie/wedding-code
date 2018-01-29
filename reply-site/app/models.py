@@ -157,4 +157,4 @@ class Guest(ModelJsonSerializer, db.Model):
         Returns:
             str
         """
-        return "<Guest: {}>".format(self.name)
+        return "<Guest: id {} name {}>".format(self.id, self.name)

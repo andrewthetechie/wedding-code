@@ -4,6 +4,7 @@ import json
 from unittest.mock import MagicMock, patch
 from app import create_app, db
 from app.resources import TwilioResponseAPI
+from app.models import Guest
 
 
 class ReplySiteTestCase(unittest.TestCase):
@@ -28,6 +29,20 @@ class ReplySiteTestCase(unittest.TestCase):
             # drop all tables
             db.session.remove()
             db.drop_all()
+
+
+class ModelsTestCase(ReplySiteTestCase):
+
+    def test_guest_repr(self):
+        """Tests that our string repr works for models.Guest"""
+        # add a guest first
+        res = self.client().post('/api/guest', data=self.guest)
+        self.assertEqual(res.status_code, 201)
+
+        with self.app.app_context():
+            # get the guest as a sqlalchemy object
+            test_guest = Guest.query.filter_by(id=1).first()
+            self.assertEquals(test_guest.__repr__(), "<Guest: id {} name {}>".format(1, "John and Jane Doe"))
 
 
 class GuestTestCase(ReplySiteTestCase):
@@ -149,7 +164,7 @@ class TwilioTestCase(ReplySiteTestCase):
             message_mock.message.assert_called_once()
 
     def test_rsvp_yes(self):
-        """Tests that we properly handle save the date NO SMS responses"""
+        """Tests that we properly handle RSVP Yes SMS responses"""
         # add our guest first
         res = self.client().post('/api/guest', data=self.guest)
         self.assertEqual(res.status_code, 201)
@@ -166,6 +181,28 @@ class TwilioTestCase(ReplySiteTestCase):
         self.assertEqual(result.status_code, 200)
         returned_guest = json.loads(result.data)
         self.assertTrue(returned_guest['rsvp'])
+
+    def test_rsvp_notes(self):
+        """Tests that we properly handle saving RSVP notesSMS responses"""
+        # add our guest first
+        res = self.client().post('/api/guest', data=self.guest)
+        self.assertEqual(res.status_code, 201)
+
+        message_mock = MagicMock()
+        with patch.object(TwilioResponseAPI, '_get_twilio_messager', return_value=message_mock) as local_mock:
+            response = self.client().post('/api/sms', data={'From': "5555555555", 'Body': "RSVP Yes 2 So happy for "
+                                                                                          "you"})
+            self.assertEqual(response.status_code, 200)
+            local_mock.assert_called()
+            message_mock.message.assert_called_with("We're so glad you're joining us on our special day! Remember to "
+                                                    "keep up with the wedding site for any updates!")
+            message_mock.message.assert_called_once()
+        result = self.client().get('/api/guest/1')
+        self.assertEqual(result.status_code, 200)
+        returned_guest = json.loads(result.data)
+        self.assertTrue(returned_guest['rsvp'])
+        self.assertEquals(returned_guest['rsvp_notes'], "so happy for you")
+
 
     def test_rsvp_yes_less_people(self):
         """Tests that we properly handle RSVP Yes SMS responses"""
@@ -235,10 +272,40 @@ class TwilioTestCase(ReplySiteTestCase):
             local_mock.assert_called()
             message_mock.message.assert_called_with("We're so sorry! We won't text you again about our wedding plans.")
             message_mock.message.assert_called_once()
-            result = self.client().get('/api/guest/1')
-            self.assertEqual(result.status_code, 200)
-            returned_guest = json.loads(result.data)
-            self.assertTrue(returned_guest['stop_notifications'])
+        result = self.client().get('/api/guest/1')
+        self.assertEqual(result.status_code, 200)
+        returned_guest = json.loads(result.data)
+        self.assertTrue(returned_guest['stop_notifications'])
+
+    def test_mangled_message(self):
+        """Tests that we properly handle mangled SMS responses"""
+        # add our guest first
+        res = self.client().post('/api/guest', data=self.guest)
+        self.assertEqual(res.status_code, 201)
+
+        message_mock = MagicMock()
+        with patch.object(TwilioResponseAPI, '_get_twilio_messager', return_value=message_mock) as local_mock:
+            response = self.client().post('/api/sms', data={'From': "5555555555", 'Body': "RSVP blurple"})
+            self.assertEqual(response.status_code, 200)
+            local_mock.assert_called()
+            message_mock.message.assert_called_with("Sorry, but I couldn't understand that. To RSVP, use RSVP Yes/No "
+                                                    "#of attendees. Examples: RSVP yes 2 or RSVP no.")
+            message_mock.message.assert_called_once()
+
+    def test_more_mangled_message(self):
+        """Tests that we properly handle mangled SMS responses"""
+        # add our guest first
+        res = self.client().post('/api/guest', data=self.guest)
+        self.assertEqual(res.status_code, 201)
+
+        message_mock = MagicMock()
+        with patch.object(TwilioResponseAPI, '_get_twilio_messager', return_value=message_mock) as local_mock:
+            response = self.client().post('/api/sms', data={'From': "5555555555", 'Body': "RSVP yes blurple"})
+            self.assertEqual(response.status_code, 200)
+            local_mock.assert_called()
+            message_mock.message.assert_called_with("Sorry, but I couldn't understand that. To RSVP, use RSVP Yes/No "
+                                                    "#of attendees. Examples: RSVP yes 2 or RSVP no.")
+            message_mock.message.assert_called_once()
 
 
 # Make the tests conveniently executable
