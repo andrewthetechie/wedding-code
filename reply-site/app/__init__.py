@@ -1,6 +1,8 @@
 from flask import Flask
 from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
+from flask_admin import Admin
+from flask_admin.contrib.sqla import ModelView
 
 # local import
 from instance.config import Config
@@ -25,6 +27,8 @@ def create_app():
     app.config.from_object(config)
     app.logger.debug("Config loaded {}".format(config))
     db.init_app(app)
+
+    # flask-restful
     api = Api(app)
 
     api.add_resource(GuestsAPI,
@@ -40,4 +44,12 @@ def create_app():
                      '/api/sms',
                      resource_class_kwargs={'guest_object': Guest},
                      endpoint="sms")
+
+
+    # Create admin
+    admin = Admin(app, name='Wedding Reply Site', template_mode='bootstrap3')
+
+    # Add views
+    admin.add_view(ModelView(Guest, db.session))
+
     return app

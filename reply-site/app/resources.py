@@ -188,7 +188,10 @@ class TwilioResponseAPI(TwilioResource):
             resp.message(response)
             guest.total_attendees = total_attendees
             guest.rsvp = rsvp
-            guest.rsvp_notes = note
+            if guest.rsvp_notes is None:
+                guest.rsvp_notes = note
+            else:
+                guest.rsvp_notes += "\n" + note
             guest.save()
             return
 

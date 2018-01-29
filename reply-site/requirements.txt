@@ -7,3 +7,4 @@ flask-restful
 simplejson
 twilio>=6.5.0
 cerberus
+flask-admin

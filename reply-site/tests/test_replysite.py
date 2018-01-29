@@ -203,6 +203,32 @@ class TwilioTestCase(ReplySiteTestCase):
         self.assertTrue(returned_guest['rsvp'])
         self.assertEquals(returned_guest['rsvp_notes'], "so happy for you")
 
+    def test_rsvp_more_notes(self):
+        """Tests that we properly handle saving multiple notes SMS responses"""
+        # add our guest first
+        res = self.client().post('/api/guest', data=self.guest)
+        self.assertEqual(res.status_code, 201)
+
+        message_mock = MagicMock()
+        with patch.object(TwilioResponseAPI, '_get_twilio_messager', return_value=message_mock) as local_mock:
+            response = self.client().post('/api/sms', data={'From': "5555555555", 'Body': "RSVP Yes 2 So happy for "
+                                                                                          "you"})
+            self.assertEqual(response.status_code, 200)
+            local_mock.assert_called()
+            message_mock.message.assert_called_once()
+
+        with patch.object(TwilioResponseAPI, '_get_twilio_messager', return_value=message_mock) as local_mock:
+            response = self.client().post('/api/sms', data={'From': "5555555555", 'Body': "RSVP Yes 2 Still happy!"})
+            self.assertEqual(response.status_code, 200)
+            local_mock.assert_called()
+            message_mock.message.assert_called_with("We're so glad you're joining us on our special day! Remember to "
+                                                    "keep up with the wedding site for any updates!")
+
+        result = self.client().get('/api/guest/1')
+        self.assertEqual(result.status_code, 200)
+        returned_guest = json.loads(result.data)
+        self.assertTrue(returned_guest['rsvp'])
+        self.assertEquals(returned_guest['rsvp_notes'], "so happy for you\nstill happy!")
 
     def test_rsvp_yes_less_people(self):
         """Tests that we properly handle RSVP Yes SMS responses"""
