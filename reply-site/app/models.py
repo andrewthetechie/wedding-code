@@ -169,7 +169,7 @@ class Guest(ModelJsonSerializer, db.Model):
         Returns:
             list
         """
-        return Guest.query.filter(Guest.date_saved == status).all()
+        return Guest.query.filter((Guest.date_saved == status) & (Guest.stop_notifications != True)).all()
 
     @staticmethod
     def get_rsvp_list(status):
@@ -181,7 +181,7 @@ class Guest(ModelJsonSerializer, db.Model):
         Returns:
             list
         """
-        return Guest.query.filter(Guest.rsvp == status).all()
+        return Guest.query.filter((Guest.rsvp == status) & (Guest.stop_notifications != True)).all()
 
     @staticmethod
     def get_all_contacts():
