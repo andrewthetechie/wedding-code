@@ -104,7 +104,7 @@ class Guest(ModelJsonSerializer, db.Model):
         'date_saved': {'type': 'boolean', 'required': False},
         'rsvp': {'type': 'boolean', 'required': False},
         'rsvp_notes':  {'type': 'string', 'required': False},
-        'stop_notification': {'type': 'boolean', 'required': False}
+        'stop_notifications': {'type': 'boolean', 'required': False}
     }
 
     def __init__(self, name: str,
@@ -135,14 +135,6 @@ class Guest(ModelJsonSerializer, db.Model):
         db.session.add(self)
         db.session.commit()
 
-    @staticmethod
-    def get_all():
-        """
-        Returns all guests
-
-        """
-        return Guest.query.all()
-
     def delete(self):
         """
         Deletes this guest
@@ -158,3 +150,45 @@ class Guest(ModelJsonSerializer, db.Model):
             str
         """
         return "<Guest: id {} name {}>".format(self.id, self.name)
+
+    @staticmethod
+    def get_all():
+        """
+        Returns all guests
+
+        """
+        return Guest.query.all()
+
+    @staticmethod
+    def get_std_list(status):
+        """
+        Returns a list of all quests, filtered on their save the date status
+        Args:
+            status (bool, none): What status of guests we want
+
+        Returns:
+            list
+        """
+        return Guest.query.filter(Guest.date_saved == status).all()
+
+    @staticmethod
+    def get_rsvp_list(status):
+        """
+        Returns a list of all quests, filtered on their rsvp status
+        Args:
+            status (bool, none): What status of guests we want
+
+        Returns:
+            list
+        """
+        return Guest.query.filter(Guest.rsvp == status).all()
+
+    @staticmethod
+    def get_all_contacts():
+        """
+        Returns a list of all quests who have not asked us to stop contacting them
+
+        Returns:
+            list
+        """
+        return Guest.query.filter(Guest.stop_notifications != True).all()

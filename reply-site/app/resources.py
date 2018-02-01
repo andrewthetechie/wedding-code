@@ -1,9 +1,9 @@
-from flask import abort, current_app
-from cerberus import Validator
 from functools import wraps
-from twilio.request_validator import RequestValidator
-from flask_restful import Resource
+from cerberus import Validator
+from flask import abort, current_app
 from flask import request
+from flask_restful import Resource
+from twilio.request_validator import RequestValidator
 from twilio.twiml.messaging_response import MessagingResponse
 
 
@@ -44,10 +44,33 @@ class GuestsResource(Resource):
     def __init__(self, **kwargs):
         self.Guest = kwargs['guest_object']
 
+    @staticmethod
+    def str2bool(v):
+        return v.lower() in ("yes", "true", "t", "1")
+
 
 class GuestsList(GuestsResource):
     def get(self):
-        our_list = self.Guest.get_all()
+        if request.query_string is not None:
+            try:
+                guest_filter = request.args['guest_filter'].lower()
+                if guest_filter == "all_contacts":
+                    our_list = self.Guest.get_all_contacts()
+                else:
+                    guest_filter_value = request.args['guest_filter_value'].lower()
+                    if guest_filter_value == "none" or guest_filter_value == "null":
+                        guest_filter_value = None
+                    else:
+                        guest_filter_value = self.str2bool(guest_filter_value)
+                    if guest_filter == "std" or guest_filter == "savethedate":
+                        our_list = self.Guest.get_std_list(guest_filter_value)
+                    elif guest_filter == "rsvp":
+                        our_list = self.Guest.get_rsvp_list(guest_filter_value)
+                    else:
+                        our_list = self.Guest.get_all()
+            except KeyError:
+                our_list = self.Guest.get_all()
+
         to_return = []
         for guest in our_list:
             to_return.append(guest.to_json())
@@ -99,6 +122,21 @@ class GuestsAPI(GuestsResource):
                 data['total_attendees'] = int(data['total_attendees'])
             except ValueError:
                 return {"errors": "Total Attendees must be an integer number"}, 400
+            except KeyError:
+                pass
+
+            try:
+                data['date_saved'] = self.str2bool(data['date_saved'])
+            except KeyError:
+                pass
+
+            try:
+                data['rsvp'] = self.str2bool(data['rsvp'])
+            except KeyError:
+                pass
+
+            try:
+                data['stop_notifications'] = self.str2bool(data['stop_notifications'])
             except KeyError:
                 pass
 

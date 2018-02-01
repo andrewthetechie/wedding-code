@@ -75,6 +75,129 @@ class GuestTestCase(ReplySiteTestCase):
         self.assertEqual(result.status_code, 200)
         self.assertIn('John and Jane Doe', str(result.data))
 
+    def test_api_can_get_guest_all_contacts(self):
+        """TEst API can return only guests with stop_notifications is False"""
+        # add two guests
+        res = self.client().post('/api/guest', data=self.guest)
+        self.assertEqual(res.status_code, 201)
+        res = self.client().post('/api/guest', data={'name': 'Steve and Dave Testerson',
+                                                     'total_attendees': 2,
+                                                     "phone_number": "1234567890"})
+        self.assertEqual(res.status_code, 201)
+        # set guest 2 to be stop_notification
+        put_result = self.client().put('/api/guest/2', data={"stop_notifications": True})
+        self.assertEqual(put_result.status_code, 200)
+
+        # get all contacts and make sure that we only have one contact
+        get_request = self.client().get('/api/guests?guest_filter=all_contacts')
+        self.assertEqual(get_request.status_code, 200)
+        self.assertIn("John and Jane Doe", str(get_request.data))
+        self.assertNotIn("Steve and Dave Testerson", str(get_request.data))
+
+        # set guest 2 to not be stop notification
+        put_result = self.client().put('/api/guest/2', data={"stop_notifications": False})
+        self.assertEqual(put_result.status_code, 200)
+
+        # get all contacts and make sure that we have both contacts now
+        get_request = self.client().get('/api/guests?guest_filter=all_contacts')
+        self.assertEqual(get_request.status_code, 200)
+        self.assertIn("John and Jane Doe", str(get_request.data))
+        self.assertIn("Steve and Dave Testerson", str(get_request.data))
+
+    def test_api_can_get_guest_std_list(self):
+        """Test API can return lists of users based on save the date status"""
+        # add two guests
+        res = self.client().post('/api/guest', data=self.guest)
+        self.assertEqual(res.status_code, 201)
+        res = self.client().post('/api/guest', data={'name': 'Steve and Dave Testerson',
+                                                     'total_attendees': 2,
+                                                     "phone_number": "1234567890"})
+        self.assertEqual(res.status_code, 201)
+        # get all contacts filtered on save_the_date is None
+        get_request = self.client().get('/api/guests?guest_filter=savethedate&guest_filter_value=None')
+        self.assertEqual(get_request.status_code, 200)
+        self.assertIn("John and Jane Doe", str(get_request.data))
+        self.assertIn("Steve and Dave Testerson", str(get_request.data))
+
+        # set guest 2 to have saved the date
+        put_result = self.client().put('/api/guest/2', data={"date_saved": True})
+        self.assertEqual(put_result.status_code, 200)
+
+        # get all contacts filtered on save_the_date is None and make sure we only have one contact
+        get_request = self.client().get('/api/guests?guest_filter=savethedate&guest_filter_value=None')
+        self.assertEqual(get_request.status_code, 200)
+        self.assertIn("John and Jane Doe", str(get_request.data))
+        self.assertNotIn("Steve and Dave Testerson", str(get_request.data))
+
+        # get all contacts filtered on save_the_date is True and make sure we have Steve and Dan
+        get_request = self.client().get('/api/guests?guest_filter=savethedate&guest_filter_value=True')
+        self.assertEqual(get_request.status_code, 200)
+        self.assertNotIn("John and Jane Doe", str(get_request.data))
+        self.assertIn("Steve and Dave Testerson", str(get_request.data))
+
+        # set guest 1 to not be coming to the wedding :(
+        put_result = self.client().put('/api/guest/1', data={"date_saved": False})
+        self.assertEqual(put_result.status_code, 200)
+
+        # get all contacts filtered on save_the_date is False and make sure we have John and Jane
+        get_request = self.client().get('/api/guests?guest_filter=savethedate&guest_filter_value=False')
+        self.assertEqual(get_request.status_code, 200)
+        self.assertIn("John and Jane Doe", str(get_request.data))
+        self.assertNotIn("Steve and Dave Testerson", str(get_request.data))
+
+        # get all contacts filtered on save_the_date is None and make sure we get no contacts
+        get_request = self.client().get('/api/guests?guest_filter=savethedate&guest_filter_value=None')
+        self.assertEqual(get_request.status_code, 200)
+        self.assertNotIn("John and Jane Doe", str(get_request.data))
+        self.assertNotIn("Steve and Dave Testerson", str(get_request.data))
+
+    def test_api_can_get_guest_rsvp_list(self):
+        """Test API can return lists of users based on rsvp status"""
+        # add two guests
+        res = self.client().post('/api/guest', data=self.guest)
+        self.assertEqual(res.status_code, 201)
+        res = self.client().post('/api/guest', data={'name': 'Steve and Dave Testerson',
+                                                     'total_attendees': 2,
+                                                     "phone_number": "1234567890"})
+        self.assertEqual(res.status_code, 201)
+        # get all contacts filtered on save_the_date is None
+        get_request = self.client().get('/api/guests?guest_filter=rsvp&guest_filter_value=None')
+        self.assertEqual(get_request.status_code, 200)
+        self.assertIn("John and Jane Doe", str(get_request.data))
+        self.assertIn("Steve and Dave Testerson", str(get_request.data))
+
+        # set guest 2 to have saved the date
+        put_result = self.client().put('/api/guest/2', data={"rsvp": True})
+        self.assertEqual(put_result.status_code, 200)
+
+        # get all contacts filtered on save_the_date is None and make sure we only have one contact
+        get_request = self.client().get('/api/guests?guest_filter=rsvp&guest_filter_value=None')
+        self.assertEqual(get_request.status_code, 200)
+        self.assertIn("John and Jane Doe", str(get_request.data))
+        self.assertNotIn("Steve and Dave Testerson", str(get_request.data))
+
+        # get all contacts filtered on save_the_date is True and make sure we have Steve and Dan
+        get_request = self.client().get('/api/guests?guest_filter=rsvp&guest_filter_value=True')
+        self.assertEqual(get_request.status_code, 200)
+        self.assertNotIn("John and Jane Doe", str(get_request.data))
+        self.assertIn("Steve and Dave Testerson", str(get_request.data))
+
+        # set guest 1 to not be coming to the wedding :(
+        put_result = self.client().put('/api/guest/1', data={"rsvp": False})
+        self.assertEqual(put_result.status_code, 200)
+
+        # get all contacts filtered on save_the_date is False and make sure we have John and Jane
+        get_request = self.client().get('/api/guests?guest_filter=rsvp&guest_filter_value=False')
+        self.assertEqual(get_request.status_code, 200)
+        self.assertIn("John and Jane Doe", str(get_request.data))
+        self.assertNotIn("Steve and Dave Testerson", str(get_request.data))
+
+        # get all contacts filtered on save_the_date is None and make sure we get no contacts
+        get_request = self.client().get('/api/guests?guest_filter=rsvp&guest_filter_value=None')
+        self.assertEqual(get_request.status_code, 200)
+        self.assertNotIn("John and Jane Doe", str(get_request.data))
+        self.assertNotIn("Steve and Dave Testerson", str(get_request.data))
+
     def test_guest_can_be_edited(self):
         """Test API can edit an existing guest. (PUT request)"""
         res = self.client().post('/api/guest', data=self.guest)
