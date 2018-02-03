@@ -1,0 +1,24 @@
+www.andrewandsarahwedding.com andrewandsarahwedding.com {
+  tls andrew.the.techie@gmail.com
+
+  root /var/www/html/wp-content
+  gzip
+
+  fastcgi / wordpress:9000 php
+  rewrite {
+    if {path} not_match ^\/wp-admin
+    to {path} {path}/ /index.php?_url={uri}
+  }
+  log stdout
+  errors stderr
+ }
+
+
+api.andrewandsarahwedding.com {
+        proxy / wedding_manager_api:8000 {
+                transparent
+        }
+        gzip
+
+        tls andrew.the.techie@gmail.com
+}
