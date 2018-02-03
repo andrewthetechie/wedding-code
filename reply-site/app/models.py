@@ -93,14 +93,14 @@ class Guest(ModelJsonSerializer, db.Model):
         'total_attendees': {'type': 'integer'},
         'phone_number': {'type': 'string'},
         'email_address': {'type': 'string'},
-        'physcial_address': {'type': 'string'}
+        'physical_address': {'type': 'string'}
     }
     PUT_SCHEMA = {
         'name': {'type': 'string', 'required': False},
         'total_attendees': {'type': 'integer', 'required': False},
         'phone_number': {'type': 'string', 'required': False},
         'email_address': {'type': 'string', 'required': False},
-        'physcial_address': {'type': 'string', 'required': False},
+        'physical_address': {'type': 'string', 'required': False},
         'date_saved': {'type': 'boolean', 'required': False},
         'rsvp': {'type': 'boolean', 'required': False},
         'rsvp_notes':  {'type': 'string', 'required': False},
