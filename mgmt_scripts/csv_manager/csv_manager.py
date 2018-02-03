@@ -37,12 +37,13 @@ def _add_guest(
         'total_attendees': total_attendees,
         'phone_number': phone_number,
         'email_address': email_address,
-        'physcial_address': physical_address
+        'physical_address': physical_address
     }
     # ToDo: Handle auth
     guest_url = "{}/guest".format(wedding_manager_url)
     response = requests.post(url=guest_url, json=data)
-    return True if response.status_code == 200 else False
+
+    return True if response.status_code == 201 else False
 
 
 def _get_guest_list_from_file(csv_file: click.File,
@@ -74,27 +75,28 @@ def _get_guest_list_from_wm(wedding_manager_url: str,
         list or bool
     """
     guests_url = "{}/guests".format(wedding_manager_url)
-    response = requests.post(url=guests_url)
-    return json.loads(response.json()) if response.status_code == 200 else False
+    response = requests.get(url=guests_url)
+    return response.json() if response.status_code == 200 else False
 
 
 @click.group()
-@click.option('--wm_api_url', default="http://wm-api:5000/api", envvar="WM-API-URL")
-@click.option('--wm_api_user', default="admin", envvar="WM-API-USER")
-@click.option('--wm_api_pass', default="pass", envvar="WM-API-PASS")
+@click.option('--wm_api_url', default="http://wm-api:5000/api", envvar="WM_API_URL")
+@click.option('--wm_api_user', default="admin", envvar="WM_API_USER")
+@click.option('--wm_api_pass', default="pass", envvar="WM_API_PASS")
 @click.pass_context
 def cli(ctx,
         wm_api_url: str,
-        wm_api_users: str,
+        wm_api_user: str,
         wm_api_pass: str):
+    ctx.obj = dict()
     ctx.obj['WM_API_URL'] = wm_api_url
-    ctx.obj['WM_API_USER'] = wm_api_users
+    ctx.obj['WM_API_USER'] = wm_api_user
     ctx.obj['WM_API_PASS'] = wm_api_pass
     pass
 
 
-@cli.command()
-@click.option('--skip_lines', default=0, type=int)
+@cli.command(name="import")
+@click.option('--skip_lines', default=0, type=int, help="Lines to skip from the top of the csv")
 @click.argument('csv_file', type=click.File('r'))
 @click.pass_context
 def _import(ctx,
@@ -102,19 +104,13 @@ def _import(ctx,
             skip_lines: int):
     """
     Import imports a CSV file into our wedding manager
-    Args:
-        csv_file (click.File): Readable CSV file
-        ctx (click context object): Passed from CLI
-        skip_lines (int): Number of lines to skip reading in the csv
-
-    Returns:
 
     """
     # get our guest list
     guest_list = _get_guest_list_from_file(csv_file, skip_lines)
 
     click.echo("About to import {guests} guests from {filename}".format(guests=len(guest_list),
-                                                                        filename=csv_file.filename))
+                                                                        filename=csv_file.name))
     click.confirm('Do you want to continue?', abort=True)
 
     for guest in tqdm(guest_list):
@@ -135,7 +131,7 @@ def _import(ctx,
 @click.option('--no_header', default=False, type=bool, is_flag=True)
 @click.argument('csv_file_name', type=str,
                 default="./wm-out-{}.csv".format(datetime.now().strftime("%Y-%m-%d-%H-%M")))
-@click.pass_context()
+@click.pass_context
 def export(ctx,
            csv_file_name: str,
            no_header: bool):
@@ -148,28 +144,19 @@ def export(ctx,
         no_header (bool): If
 
     """
-    file_header = "name,phone,address,email,total_attendees,date_saved,rsvp,rsvp_notes,stop_notification"
     guest_list = _get_guest_list_from_wm(ctx.obj['WM_API_URL'],
                                          ctx.obj['WM_API_USER'],
                                          ctx.obj['WM_API_PASS'])
 
-    click.echo("About to write info about {guests} to {filename}".format(guests=len(guest_list),
-                                                                         filename=csv_file_name))
+    click.echo("About to write info about {guests} guests to {filename}".format(guests=len(guest_list),
+                                                                                filename=csv_file_name))
     click.confirm('Do you want to continue?', abort=True)
 
-    with open(csv_file_name, 'wb') as file_handler:
-        writer = csv.DictWriter(file_handler, ['name',
-                                               'phone',
-                                               'email',
-                                               'address',
-                                               'total_attendees',
-                                               'date_saved',
-                                               'rsvp',
-                                               'rsvp_nodes',
-                                               'stop_notification'])
+    keys = guest_list[0].keys()
+    with open(csv_file_name, 'w') as file_handler:
+        writer = csv.DictWriter(file_handler, keys)
         if not no_header:
             writer.writeheader()
-        for guest in tqdm(guest_list):
-            writer.writerow(guest)
+        writer.writerows(guest_list)
 
     click.echo("Dumped Wedding Manager Guest list to {}".format(csv_file_name))

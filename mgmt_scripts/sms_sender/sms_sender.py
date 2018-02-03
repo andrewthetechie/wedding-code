@@ -2,6 +2,7 @@ import click
 import requests
 from tqdm import tqdm
 from twilio.rest import Client
+from jinja2 import Environment
 
 
 def _get_all_contact_users(url: str,
@@ -17,7 +18,7 @@ def _get_all_contact_users(url: str,
     Returns:
         list[dict]
     """
-    response = requests.get(url="{}/api/guests?guest_filter=all_contacts".format(url))
+    response = requests.get(url="{}/guests?guest_filter=all_contacts".format(url))
     return response.json()
 
 
@@ -34,8 +35,8 @@ def _get_rsvp_users(url: str,
     Returns:
         list[dict]
     """
-    first_query = requests.get("{}/api/guests?guest_filter=savethedate&guest_value=None".format(url))
-    second_query = requests.get("{}/api/guests?guest_filter=savethedate&guest_value=True".format(url))
+    first_query = requests.get("{}/guests?guest_filter=savethedate&guest_value=None".format(url))
+    second_query = requests.get("{}/guests?guest_filter=savethedate&guest_value=True".format(url))
     return first_query.json() + second_query.json()
 
 
@@ -52,30 +53,46 @@ def _get_not_yet_rsvp_users(url: str,
     Returns:
         list[dict]
     """
-    first_query = requests.get("{}/api/guests?guest_filter=savethedate&guest_value=False".format(url))
-    second_query = requests.get("{}/api/guests?guest_filter=rsvp&guest_value=None".format(url))
+    first_query = requests.get("{}/guests?guest_filter=savethedate&guest_value=False".format(url))
+    second_query = requests.get("{}/guests?guest_filter=rsvp&guest_value=None".format(url))
     return [user for user in second_query.json() if user not in first_query.json()]
 
 
-def _send_messages(ctx, user_list: list, message: str):
+def _render_template(template: str, user: dict):
+    """
+    Renders a jinja template (template) using a dict (user)
+
+    Args:
+        template (str): String Jinja template
+        user (dict): Dictionary of a user
+
+    Returns:
+        str
+    """
+    return Environment().from_string(template).render(**user)
+
+
+def _send_messages(ctx, user_list: list, template: str):
     """
     Loops through our user list and sends them message, if not in test mode
     Args:
         ctx: CLick context object
         user_list (list): List of users to send to
-        message (str): Message to send
+        template (str): Message to send
     """
     if not ctx.obj['TEST_MODE']:
-        click.echo("About to send SMS message to {} users".format(len(user_list)))
-        click.echo("Message:\n {}".format(message))
+        click.echo("About to send SMS template to {} users".format(len(user_list)))
+        click.echo("Template:\n {}".format(template))
         click.confirm('Do you want to continue?', abort=True)
         for user in tqdm(user_list):
+            message = _render_template(template, user)
             _send_message(ctx.obj['TW_CLIENT'], user['phone_number'], ctx.obj['TW_FROM_NUMBER'], message)
-            tqdm.write("Sent message to {name} at {number}".format(name=user['name'], number=user['phone_number']))
+            tqdm.write("Sent template to {name} at {number}".format(name=user['name'], number=user['phone_number']))
     else:
         click.echo("We would send messages to {} users".format(len(user_list)))
-        click.echo("Message:\n {}".format(message))
+        click.echo("Template:\n {}".format(template))
         click.echo("User List:\n {}".format(user_list))
+        click.echo("Rendered template with first user: {}".format(_render_template(template, user_list[0])))
 
 
 def _send_message(client,
@@ -92,30 +109,31 @@ def _send_message(client,
         message (str): Message to send
 
     """
-    client.api.account.message.create(to=to_num,
+    client.api.account.messages.create(to=to_num,
                                       from_=from_num,
                                       body=message)
 
 
 @click.group()
-@click.option('--wm_api_url', default="http://wm-api:5000/api", envvar="WM-API-URL")
-@click.option('--wm_api_user', default="admin", envvar="WM-API-USER")
-@click.option('--wm_api_pass', default="pass", envvar="WM-API-PASS")
-@click.option('--account_sid', envvar="TW-ACCNT-SID")
-@click.option('--auth_token',  envvar="TW-AUTH-TOKEN")
-@click.option('--from_number',  envvar="TW-FROM-NUMBER")
+@click.option('--wm_api_url', default="http://wm-api:5000/api", envvar="WM_API_URL")
+@click.option('--wm_api_user', default="admin", envvar="WM_API_USER")
+@click.option('--wm_api_pass', default="pass", envvar="WM_API_PASS")
+@click.option('--account_sid', envvar="TW_ACCNT_SID")
+@click.option('--auth_token',  envvar="TW_AUTH_TOKEN")
+@click.option('--from_number',  envvar="TW_FROM_NUMBER")
 @click.option('--test', help="Test, dont actually send the SMS", is_flag=True, default=False)
 @click.pass_context
 def cli(ctx,
         wm_api_url: str,
-        wm_api_users: str,
+        wm_api_user: str,
         wm_api_pass: str,
         account_sid: str,
         auth_token: str,
         from_number: str,
         test: bool):
+    ctx.obj = dict()
     ctx.obj['WM_API_URL'] = wm_api_url
-    ctx.obj['WM_API_USER'] = wm_api_users
+    ctx.obj['WM_API_USER'] = wm_api_user
     ctx.obj['WM_API_PASS'] = wm_api_pass
     ctx.obj['TW_CLIENT'] = Client(account_sid, auth_token)
     ctx.obj['TW_FROM_NUMBER'] = from_number

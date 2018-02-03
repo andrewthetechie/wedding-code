@@ -9,7 +9,8 @@ setup(
         'requests',
         'twilio',
         'tqdm',
-        'requests'
+        'requests',
+        'jinja2'
     ],
     entry_points='''
         [console_scripts]
