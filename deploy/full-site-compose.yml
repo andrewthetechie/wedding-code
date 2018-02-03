@@ -10,11 +10,13 @@ services:
     volumes:
       - /opt/caddy/Caddyfile:/etc/Caddyfile
       - /opt/caddy/ssl:/root/.caddy
+    volumes_from:
+      - wordpress
     restart: unless-stopped
   wordpress_db:
-    image: mysql:5.7
+    image: mariadb:latest
     volumes:
-      - /opt/wp/db_data:/var/lib/mysql
+      - /opt/wp/db:/var/lib/mysql
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: somewordpress
@@ -24,9 +26,10 @@ services:
   wordpress:
     depends_on:
       - wordpress_db
-    image: wordpress:latest
+    image: wordpress:fpm
     volumes:
       - /opt/wp/wp-content:/var/www/html/wp-content
+      - /opt/wp/php.ini:/usr/local/etc/php/conf.d/custom.ini
     restart: always
     environment:
       WORDPRESS_DB_HOST: wordpress_db:3306
