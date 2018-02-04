@@ -1,16 +1,10 @@
 www.andrewandsarahwedding.com andrewandsarahwedding.com {
   tls andrew.the.techie@gmail.com
-
-  root /var/www/html/wp-content
   gzip
 
-  fastcgi / wordpress:9000 php
-  rewrite {
-    if {path} not_match ^\/wp-admin
-    to {path} {path}/ /index.php?_url={uri}
+  proxy / wordpress:80 {
+   transparent
   }
-  log stdout
-  errors stderr
  }
 
 

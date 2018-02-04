@@ -415,8 +415,9 @@ class TwilioTestCase(ReplySiteTestCase):
         self.assertEqual(res.status_code, 201)
 
         message_mock = MagicMock()
+        response = self.client().post('/api/sms', data={'From': "5555555555", 'Body': "Stop"})str
         with patch.object(TwilioResponseAPI, '_get_twilio_messager', return_value=message_mock) as local_mock:
-            response = self.client().post('/api/sms', data={'From': "5555555555", 'Body': "Stop"})
+
             self.assertEqual(response.status_code, 200)
             local_mock.assert_called()
             message_mock.message.assert_called_with("We're so sorry! We won't text you again about our wedding plans.")

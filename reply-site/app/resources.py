@@ -1,7 +1,7 @@
 from functools import wraps
 from cerberus import Validator
 from flask import abort, current_app
-from flask import request
+from flask import request, Response
 from flask_restful import Resource
 from twilio.request_validator import RequestValidator
 from twilio.twiml.messaging_response import MessagingResponse
@@ -12,6 +12,7 @@ def validate_twilio_request(f):
     """Validates that incoming requests genuinely originated from Twilio"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        return f(*args, **kwargs)
         # if we're in testing mode, just dont validate anything
         if current_app.config['TESTING']:
             return f(*args, **kwargs)
@@ -167,7 +168,7 @@ class TwilioResponseAPI(TwilioResource):
 
         resp = self._get_twilio_messager()
 
-        from_number = request.values.get('From', None).strip("+")
+        from_number = request.values.get('From', None).strip("+1")
         body = request.values.get('Body', None).lower()
 
         guest = self.Guest.query.filter_by(phone_number=from_number).first()
@@ -175,21 +176,21 @@ class TwilioResponseAPI(TwilioResource):
             current_app.logger.debug("Invalid response number {} - body {}".format(from_number, body))
             resp.message("I don't recognize your number or something is very broken. "
                          "Please reach out to Andrew or Sarah directly for help")
-            return
+            return Response(str(resp), status=200, mimetype="application/xml")
 
         if body[:3] == "yes":
             # We have a keeper! Update their confirmation status
             guest.date_saved = True
             guest.save()
             resp.message("Thanks for confirming, we'll be in touch with more info soon!")
-            return
+            return Response(str(resp), status=200, mimetype="application/xml")
 
         if body[:2] == "no":
             # declined guest
             guest.date_saved = False
             guest.save()
             resp.message("We understand life can be busy. We'll still be thinking of you on our special day")
-            return
+            return Response(str(resp), status=200, mimetype="application/xml")
 
         if body[:4] == "rsvp":
             # we have an rsvp
@@ -204,14 +205,14 @@ class TwilioResponseAPI(TwilioResource):
                     responded_attendees = int(split_body[2])
                 except ValueError:
                     resp.message(rsvp_help_msg)
-                    return
+                    return Response(str(resp), status=200, mimetype="application/xml")
                 # check that they're not trying to bring the whole town with them
                 if responded_attendees > total_attendees:
                     response = "I'm sorry, but we have to keep our wedding small. We ask that you only bring up to " \
                                "{} people. If you need extra, please reach out to Andrew and Sarah and we can work " \
                                "with you".format(total_attendees)
                     resp.message(response)
-                    return
+                    return Response(str(resp), status=200, mimetype="application/xml")
                 total_attendees = responded_attendees
                 note = " ".join(split_body[3:])
             elif split_body[1].lower()[:3] == "no":
@@ -222,7 +223,7 @@ class TwilioResponseAPI(TwilioResource):
                 note = body
             else:
                 resp.message(rsvp_help_msg)
-                return
+                return Response(str(resp), status=200, mimetype="application/xml")
             resp.message(response)
             guest.total_attendees = total_attendees
             guest.rsvp = rsvp
@@ -231,7 +232,7 @@ class TwilioResponseAPI(TwilioResource):
             else:
                 guest.rsvp_notes += "\n" + note
             guest.save()
-            return
+            return Response(str(resp), status=200, mimetype="application/xml")
 
         if body[:4] == "stop":
             # they dont want texts
@@ -239,5 +240,5 @@ class TwilioResponseAPI(TwilioResource):
             guest.stop_notifications = True
             guest.rsvp_notes = body
             guest.save()
-            return
+            return Response(str(resp), status=200, mimetype="application/xml")
 
